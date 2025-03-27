@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Balloon to Kangaroo Game</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: skyblue;
+    }
+    /* Instructions box at the top */
+    #instructions {
+      position: fixed;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      background: white;
+      color: black;
+      padding: 10px;
+      font-size: 16px;
+      border: 2px solid black;
+      border-radius: 5px;
+      z-index: 1000;
+    }
+    /* Score display in the top right */
+    #score-display {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+      font-size: 32px;
+      font-family: sans-serif;
+      color: black;
+      z-index: 1000;
+    }
+    /* Target color display at the bottom */
+    #target-display {
+      position: fixed;
+      bottom: 20px;
+      width: 100%;
+      text-align: center;
+      font-size: 48px;
+      font-family: sans-serif;
+      font-weight: bold;
+      color: black;
+      z-index: 1000;
+    }
+    .balloon {
+      position: absolute;
+      width: 80px;
+      height: 100px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: left 2.5s ease, top 2.5s ease;
+    }
+    /* Enhanced balloon string: longer and curvy like an S */
+    .balloon::after {
+      content: "";
+      position: absolute;
+      bottom: -80px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: block;
+      width: 8px;
+      height: 80px;
+      background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="8" height="80" viewBox="0 0 8 60"><path d="M4,0 C0,20, 8,40, 4,60" stroke="gray" stroke-width="2" fill="none" /></svg>');
+      background-repeat: no-repeat;
+      background-size: contain;
+    }
+    .kangaroo {
+      position: absolute;
+      font-size: 60px;
+      cursor: pointer;
+      transition: transform 0.2s ease;
+    }
+  </style>
+</head>
+<body>
+  <div id="instructions">
+    Click the balloon that matches the target color shown at the bottom.<br>
+    When you click the correct balloon, it turns into a jumping kangaroo and you earn a point!<br>
+    <label for="difficulty-select">Difficulty: </label>
+    <select id="difficulty-select">
+      <option value="easy">Easy</option>
+      <option value="medium" selected>Medium</option>
+      <option value="hard">Hard</option>
+    </select>
+    <br>
+    (Changing difficulty affects new moves and new balloons.)
+  </div>
+  <div id="score-display">Score: 0</div>
+  <div id="target-display"></div>
+  <div id="game-area"></div>
+
+  <script>
+    const gameArea = document.getElementById("game-area");
+    const scoreDisplay = document.getElementById("score-display");
+    const targetDisplay = document.getElementById("target-display");
+    const difficultySelect = document.getElementById("difficulty-select");
+
+    const colors = ["red", "blue", "green", "yellow", "purple", "orange"];
+    let score = 0;
+    let targetColor = colors[Math.floor(Math.random() * colors.length)];
+
+    // Difficulty settings: adjust timing (in ms) for movement, color change, and kangaroo jump.
+    const difficultySettings = {
+      easy: {
+        moveDelay: 8000,         // Balloons move every 8000ms
+        minColorDelay: 6000,       // Change color delay between 6000ms...
+        maxColorDelay: 7000,       // ...and 7000ms.
+        jumpInterval: 150          // Kangaroo jump update slowed to 150ms
+      },
+      medium: {
+        moveDelay: 3000,
+        minColorDelay: 2000,
+        maxColorDelay: 3000,
+        jumpInterval: 50
+      },
+      hard: {
+        moveDelay: 2000,
+        minColorDelay: 1000,
+        maxColorDelay: 2000,
+        jumpInterval: 30
+      }
+    };
+
+    // Global current difficulty (default medium)
+    let currentDifficulty = difficultySelect.value;
+    difficultySelect.addEventListener("change", function() {
+      currentDifficulty = this.value;
+    });
+
+    // Update the score display
+    function updateScoreDisplay() {
+      scoreDisplay.textContent = "Score: " + score;
+    }
+
+    // Update the target display at the bottom
+    function updateTargetDisplay() {
+      targetDisplay.textContent = targetColor.toUpperCase();
+    }
+
+    // Ensure at least one balloon always has the target color.
+    function ensureTargetBalloonExists() {
+      const balloons = document.getElementsByClassName("balloon");
+      let hasTarget = false;
+      for (let i = 0; i < balloons.length; i++) {
+        if (balloons[i].dataset.color === targetColor) {
+          hasTarget = true;
+          break;
+        }
+      }
+      if (!hasTarget) {
+        if (balloons.length > 0) {
+          // Randomly choose one balloon and force its color to match the target.
+          const randomIndex = Math.floor(Math.random() * balloons.length);
+          const chosenBalloon = balloons[randomIndex];
+          chosenBalloon.style.background = targetColor;
+          chosenBalloon.dataset.color = targetColor;
+        } else {
+          // If no balloons exist, create one with the target color.
+          createBalloon(null, null, targetColor);
+        }
+      }
+    }
+
+    // Create a balloon; you can force its color if needed.
+    function createBalloon(x = null, y = null, forcedColor = null) {
+      const balloon = document.createElement("div");
+      balloon.className = "balloon";
+      
+      // Use forcedColor if provided; otherwise, pick a random color.
+      let initialColor = forcedColor ? forcedColor : colors[Math.floor(Math.random() * colors.length)];
+      balloon.style.background = initialColor;
+      balloon.dataset.color = initialColor;
+      
+      // Position the balloon randomly if coordinates aren't provided.
+      if (x === null) {
+        x = Math.random() * (window.innerWidth - 100);
+      }
+      if (y === null) {
+        y = Math.random() * (window.innerHeight - 120);
+      }
+      balloon.style.left = x + "px";
+      balloon.style.top = y + "px";
+      
+      // Recursive function for moving the balloon.
+      function moveBalloon() {
+        let moveDelay = difficultySettings[currentDifficulty].moveDelay;
+        setTimeout(() => {
+          const newX = Math.random() * (window.innerWidth - 100);
+          const newY = Math.random() * (window.innerHeight - 120);
+          balloon.style.left = newX + "px";
+          balloon.style.top = newY + "px";
+          moveBalloon();  // Schedule next move using the current difficulty.
+        }, moveDelay);
+      }
+      moveBalloon();
+
+      // Recursive function for changing the balloon's color.
+      function changeBalloonColor() {
+        let minDelay = difficultySettings[currentDifficulty].minColorDelay;
+        let maxDelay = difficultySettings[currentDifficulty].maxColorDelay;
+        let delay = minDelay + Math.random() * (maxDelay - minDelay);
+        setTimeout(() => {
+          const newColor = colors[Math.floor(Math.random() * colors.length)];
+          balloon.style.background = newColor;
+          balloon.dataset.color = newColor;
+          changeBalloonColor(); // Schedule next color change using current difficulty.
+        }, delay);
+      }
+      changeBalloonColor();
+      
+      // When the balloon is clicked, only transform it if it matches the target.
+      balloon.addEventListener("click", () => {
+        if (balloon.dataset.color === targetColor) {
+          gameArea.removeChild(balloon);
+          createKangaroo(parseFloat(balloon.style.left), parseFloat(balloon.style.top));
+          score++;
+          updateScoreDisplay();
+          // Choose a new target color.
+          targetColor = colors[Math.floor(Math.random() * colors.length)];
+          updateTargetDisplay();
+        }
+      });
+      
+      gameArea.appendChild(balloon);
+    }
+
+    // Create a kangaroo that jumps up and down.
+    function createKangaroo(x = 100, y = 100) {
+      const kangaroo = document.createElement("div");
+      kangaroo.className = "kangaroo";
+      kangaroo.textContent = "🦘";
+      kangaroo.style.left = x + "px";
+      kangaroo.style.top = y + "px";
+      
+      // Use current difficulty settings for jump interval.
+      let jumpIntervalTime = difficultySettings[currentDifficulty].jumpInterval;
+      let direction = 1;
+      let jumpHeight = 0;
+      let jumpInterval = setInterval(() => {
+        jumpHeight += direction * 5;
+        if (jumpHeight > 30 || jumpHeight < 0) direction *= -1;
+        kangaroo.style.transform = `translateY(-${jumpHeight}px)`;
+      }, jumpIntervalTime);
+      
+      // Clicking the kangaroo turns it back into a balloon.
+      kangaroo.addEventListener("click", () => {
+        clearInterval(jumpInterval);
+        gameArea.removeChild(kangaroo);
+        createBalloon(parseFloat(kangaroo.style.left), parseFloat(kangaroo.style.top));
+      });
+      
+      gameArea.appendChild(kangaroo);
+    }
+
+    // Create several balloons at the start (e.g., 5 balloons).
+    for (let i = 0; i < 5; i++) {
+      // For the very first balloon, force it to have the target color.
+      if (i === 0) {
+        createBalloon(null, null, targetColor);
+      } else {
+        createBalloon();
+      }
+    }
+    
+    // Initialize displays.
+    updateScoreDisplay();
+    updateTargetDisplay();
+    
+    // Regularly check (every second) that there's at least one balloon matching the target.
+    setInterval(ensureTargetBalloonExists, 1000);
+  </script>
+</body>
+</html>
