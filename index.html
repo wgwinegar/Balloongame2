@@ -2,48 +2,50 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Balloon to Kangaroo Game</title>
+  <title>Balloon to Kangaroo Rescue</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
       background: skyblue;
+      font-family: sans-serif;
     }
-    /* Instructions box at the top */
-    #instructions {
-      position: fixed;
-      top: 10px;
-      left: 10px;
-      right: 10px;
+    /* Header for instructions and difficulty (non-fixed so it doesn't cover the game) */
+    #header {
       background: white;
       color: black;
-      padding: 10px;
-      font-size: 16px;
-      border: 2px solid black;
+      padding: 5px 10px;
+      font-size: 14px;
+      border: 1px solid black;
       border-radius: 5px;
-      z-index: 1000;
+      margin: 10px;
     }
-    /* Score display in the top right */
+    /* Score display at bottom right */
     #score-display {
       position: fixed;
-      top: 10px;
-      right: 10px;
+      bottom: 20px;
+      right: 20px;
       font-size: 32px;
-      font-family: sans-serif;
-      color: black;
       z-index: 1000;
     }
-    /* Target color display at the bottom */
+    /* Target color display at bottom center */
     #target-display {
       position: fixed;
       bottom: 20px;
       width: 100%;
       text-align: center;
       font-size: 48px;
-      font-family: sans-serif;
       font-weight: bold;
       color: black;
       z-index: 1000;
+    }
+    /* Game area is positioned below the header */
+    #game-area {
+      position: absolute;
+      top: 70px; /* Adjust if you change the header's height */
+      left: 0;
+      right: 0;
+      bottom: 0;
     }
     .balloon {
       position: absolute;
@@ -76,22 +78,22 @@
   </style>
 </head>
 <body>
-  <div id="instructions">
-    Click the balloon that matches the target color shown at the bottom.<br>
-    When you click the correct balloon, it turns into a jumping kangaroo and you earn a point!<br>
+  <div id="header">
+    <strong>Balloon Rescue!</strong><br>
+    Deep in the sky, secret kangaroos are trapped inside colorful balloons.<br>
+    Your mission: tap the balloon that matches the target color at the bottom to rescue the kangaroo and set it free!<br>
+    Each rescue earns you a point.<br>
     <label for="difficulty-select">Difficulty: </label>
     <select id="difficulty-select">
       <option value="easy">Easy</option>
       <option value="medium" selected>Medium</option>
       <option value="hard">Hard</option>
     </select>
-    <br>
-    (Changing difficulty affects new moves and new balloons.)
   </div>
+  <div id="game-area"></div>
   <div id="score-display">Score: 0</div>
   <div id="target-display"></div>
-  <div id="game-area"></div>
-
+  
   <script>
     const gameArea = document.getElementById("game-area");
     const scoreDisplay = document.getElementById("score-display");
@@ -160,6 +162,18 @@
         } else {
           // If no balloons exist, create one with the target color.
           createBalloon(null, null, targetColor);
+        }
+      }
+    }
+
+    // Respawn balloons when there are 2 or fewer; add enough so there are at least 5.
+    function respawnBalloonsIfFew() {
+      const balloonElements = document.getElementsByClassName("balloon");
+      const count = balloonElements.length;
+      if (count <= 2) {
+        const toAdd = 5 - count;
+        for (let i = 0; i < toAdd; i++) {
+          createBalloon();
         }
       }
     }
@@ -269,8 +283,10 @@
     updateScoreDisplay();
     updateTargetDisplay();
     
-    // Regularly check (every second) that there's at least one balloon matching the target.
+    // Regularly check that there's at least one balloon matching the target.
     setInterval(ensureTargetBalloonExists, 1000);
+    // Also check every second that there are at least 5 balloons on screen.
+    setInterval(respawnBalloonsIfFew, 1000);
   </script>
 </body>
 </html>
